@@ -42,3 +42,36 @@ on cr.CustomerKey = cy.CustomerKey
 group by year(cr.orderdate), cy.cohort_year
 
 Once the table is created, connect your power BI to this particular SQL server and import the table cohort analysis
+
+Create a customer segmentation to get the visualisation from powerBi using following query
+![image](https://github.com/user-attachments/assets/652f3998-7932-470e-9563-0f1327560498)
+
+create view customer_segment as 
+with get_customer_revenue as (
+select 
+ModelName,
+CustomerKey,
+sum(netrevenue) as netrevenue -- aggregate function (sum,count,min,max)
+from client_revenue
+group by ModelName,
+CustomerKey
+), customer_segment as (
+-- 25% data nikal..kasari? -- ascending order netrevenue and group garne modelname le
+select 
+PERCENTILE_CONT(0.25) within group (order by netrevenue) over(partition by Modelname) as '25_percentile',
+PERCENTILE_CONT(0.75) within group (order by netrevenue) over(partition by Modelname) as '75_percentile',
+*
+from get_customer_revenue
+), segment_summary as (
+select 
+case when netrevenue < [25_percentile] then '1 - Low Value Client'
+when netrevenue <= [75_percentile] then '2 - Mid Value Client'
+else '3- High-value' end as customer_segment,
+*
+from 
+customer_segment
+)
+select customer_segment,sum(netrevenue) as  netrevenue
+from segment_summary
+group by customer_segment
+
